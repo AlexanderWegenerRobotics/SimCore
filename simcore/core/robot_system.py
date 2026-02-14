@@ -9,14 +9,14 @@ from simcore.controller.controller_manager import ControllerManager
 from simcore.common.robot_kinematics import RobotKinematics
 from simcore.common.data_logger import DataLogger
 from simcore.common.video_logger import VideoLogger
-from simcore.common.utils import load_yaml
+from simcore.common.utils import load_yaml, get_asset_path
 from simcore.common.pose import Pose
-
 
 class RobotSystem:
     def __init__(self, config: Dict):
         self.config = config
         self.sim_cfg = load_yaml(self.config.get("scene_config"))
+        self.sim_cfg = self._resolve_asset_paths(self.sim_cfg)
 
         log_dir = Path(self.config.get("logging_path", "log/"))
         trial_name = self.config.get("trial_name", f"trial_{int(time.time())}")
@@ -172,6 +172,17 @@ class RobotSystem:
         """Switch controller mode"""
         if device_name in self.ctrl:
             self.ctrl[device_name].set_mode(mode)
+
+
+    def _resolve_asset_paths(self, config):
+        """Replace relative assets/ paths with absolute SimCore asset paths."""
+        if isinstance(config, dict):
+            return {k: self._resolve_asset_paths(v) for k, v in config.items()}
+        elif isinstance(config, list):
+            return [self._resolve_asset_paths(item) for item in config]
+        elif isinstance(config, str) and config.startswith("assets/"):
+            return get_asset_path(config.removeprefix("assets/"))
+        return config
 
 if __name__ == "__main__":
     cfg = load_yaml("configs/global_config.yaml")
