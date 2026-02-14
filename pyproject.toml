@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "simcore"
+version = "0.1.0"
+description = "Modular simulation and control framework for robotic manipulation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Alexander Wegener"}
+]
+
+dependencies = [
+    "numpy",
+    "mujoco",
+    "pin",
+    "scipy",
+    "opencv-python",
+    "pyyaml",
+    "h5py",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
