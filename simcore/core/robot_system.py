@@ -93,7 +93,12 @@ class RobotSystem:
         self.control_thread.start()
         
         # Run display on main thread (blocks here)
-        self.display.run()
+        try:
+            self.display.run()
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+        finally:
+            self.stop()
         
         # When display exits, stop everything
         self.stop()
