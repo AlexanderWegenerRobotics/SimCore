@@ -109,8 +109,10 @@ class ControllerManager:
         
         bundle_name = f"ctrl_{self.device_name}"
 
-        x_current = self.kin_model.forward_kinematics(self._current_state.q)
-        xd_current = self.kin_model.get_ee_velocity(self._current_state.q, self._current_state.qd)
+        x_current, xd_current = [], []
+        if self.kin_model:
+            x_current = self.kin_model.forward_kinematics(self._current_state.q)
+            xd_current = self.kin_model.get_ee_velocity(self._current_state.q, self._current_state.qd)
 
         # Build log data dictionary
         log_data = {
@@ -121,9 +123,9 @@ class ControllerManager:
             # Input: target (mode-dependent)
             'q_target': self._current_target.get('q', np.zeros_like(self._current_state.q)),
             'x_target': self._current_target['x'].as_7d() if isinstance(self._current_target.get('x'), Pose) else np.zeros(7),
-            'x_current': x_current.as_7d(),
+            #'x_current': x_current.as_7d(),
             'xd_target': self._current_target.get('xd', np.zeros(6)),
-            'xd_current' : xd_current,
+            #'xd_current' : xd_current,
             # Output: control
             'tau': self._current_output,
             
