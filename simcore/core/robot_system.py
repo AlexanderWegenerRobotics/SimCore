@@ -4,13 +4,14 @@ import time, threading
 from typing import Dict
 
 from simcore.simulation.sim_model import SimulationModel
-from simcore.simulation.sim_display import SimulationDisplay
+from simcore.simulation.frame_distributor import FrameDistributor
 from simcore.controller.controller_manager import ControllerManager
 from simcore.common.robot_kinematics import RobotKinematics
 from simcore.common.data_logger import DataLogger
 from simcore.common.video_logger import VideoLogger
 from simcore.common.utils import load_yaml, get_asset_path
 from simcore.common.pose import Pose
+from simcore.streaming.streamer_manager import StreamerManager
 
 class RobotSystem:
     def __init__(self, config: Dict):
@@ -25,15 +26,32 @@ class RobotSystem:
         
         self.logger = DataLogger(trial_name, str(log_dir))
 
+        # ── Video logger (optional, config-driven) ────────────────
         self.video_logger = None
         if self.sim_cfg.get('video_logging', {}).get('enabled', False):
             fps = self.sim_cfg['video_logging'].get('frequency', 10)
             self.video_logger = VideoLogger(trial_dir, fps=fps)
             print(f"Video logging enabled at {fps} fps")
         
+        # ── Simulation model ──────────────────────────────────────
         self.sim = SimulationModel(config=self.sim_cfg, logger=self.logger)
-        self.display = SimulationDisplay(sim=self.sim, config=self.sim_cfg, video_logger=self.video_logger)
-        
+
+        # ── Frame distributor (replaces SimulationDisplay) ────────
+        #    Renders once, distributes to: display + video logger + streamers
+        self.distributor = FrameDistributor(sim=self.sim, config=self.sim_cfg)
+
+        display_enabled = self.sim_cfg.get('display', {}).get('enabled', True)
+        self.distributor.set_display_enabled(display_enabled)
+
+        if self.video_logger is not None:
+            self.distributor.set_video_logger(self.video_logger)
+
+        # ── Streamer manager (optional, config-driven) ────────────
+        self.streamer_manager = StreamerManager(self.sim_cfg)
+        if self.streamer_manager.enabled:
+            self.distributor.set_streamer_manager(self.streamer_manager)
+
+        # ── Controllers & kinematics ──────────────────────────────
         self.ctrl, kin_model = {}, {}
         self._target = {}
         for device in self.sim_cfg["devices"]:
@@ -82,7 +100,7 @@ class RobotSystem:
         self._lock = threading.Lock()
     
     def run(self):
-        """Start all subsystems and block on display"""
+        """Start all subsystems and block on frame distributor (main thread)"""
         self.running = True
         
         # Start physics thread
@@ -92,19 +110,17 @@ class RobotSystem:
         self.control_thread = threading.Thread(target=self._loop, daemon=False)
         self.control_thread.start()
         
-        # Run display on main thread (blocks here)
+        # Run frame distributor on main thread (blocks here)
+        # This handles display + video logging + streaming in one loop
         try:
-            self.display.run()
+            self.distributor.run()
         except KeyboardInterrupt:
             print("\nShutting down...")
         finally:
             self.stop()
-        
-        # When display exits, stop everything
-        self.stop()
     
     def stop(self):
-        """Shutdown all subsystems - only close video logger ONCE"""
+        """Shutdown all subsystems"""
         if not self.running:
             return
         
@@ -114,7 +130,9 @@ class RobotSystem:
         if hasattr(self, 'control_thread') and self.control_thread.is_alive():
             self.control_thread.join(timeout=2.0)
         
-        self.display.stop()
+        self.distributor.stop()
+
+        self.streamer_manager.stop()
         
         self.sim.stop()
         
@@ -177,7 +195,6 @@ class RobotSystem:
         """Switch controller mode"""
         if device_name in self.ctrl:
             self.ctrl[device_name].set_mode(mode)
-
 
     def _resolve_asset_paths(self, config):
         """Replace relative assets/ paths with absolute SimCore asset paths."""
