@@ -3,7 +3,7 @@ import mujoco as mj
 import time, threading
 from typing import Dict, List, Optional
 
-from simcore.common.utils import load_yaml
+from simcore.common.utils import load_yaml, look_at_quaternion
 from simcore.common.robot_state import RobotState
 
 class DeviceInfo:
@@ -133,12 +133,14 @@ class SimulationModel:
             cam_type = cam_cfg.get("type", "fixed")
 
             if cam_type == "fixed":
-                world_spec.worldbody.add_camera(
-                    name=cam_name,
-                    pos=cam_cfg.get("pos", [0,0,1]),
-                    quat=cam_cfg.get("quat",[1,0,0,0]),
-                    fovy=cam_cfg.get("fovy",60)
-                )
+                pos = np.array(cam_cfg.get("pos", [0, 0, 1]))
+    
+                if "look_at" in cam_cfg:
+                    quat = look_at_quaternion(pos, np.array(cam_cfg["look_at"]))
+                else:
+                    quat = cam_cfg.get("quat", [1, 0, 0, 0]) 
+
+                world_spec.worldbody.add_camera(name=cam_name, pos=pos, quat=quat, fovy=cam_cfg.get("fovy",60))
                 print(f"Added scene camera: {cam_name}")
             elif cam_type == "tracking":
                 target_body = cam_cfg.get('target_body', 'world')
@@ -332,21 +334,3 @@ class SimulationModel:
             self.mj_model.site_pos[self._target_site_id] = position
             if quaternion is not None:
                 self.mj_model.site_quat[self._target_site_id] = quaternion
-        
-if __name__ == "__main__":
-    from simcore.simulation.sim_display import SimulationDisplay
-    
-    global_cfg = load_yaml("configs/global_config.yaml")
-    sim_config = load_yaml(global_cfg.get("scene_config"))
-    sim = SimulationModel(sim_config)
-    display = SimulationDisplay(sim, sim_config)
-
-    try:
-        print("Starting simulation")
-        sim.start() 
-        display.run() 
-    except KeyboardInterrupt:
-        print("Stopping simulation")
-    finally:
-        display.stop()
-        sim.stop()
