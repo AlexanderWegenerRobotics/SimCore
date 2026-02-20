@@ -2,6 +2,8 @@ import numpy as np
 import subprocess
 import signal
 from typing import Optional
+import shutil
+import time
 
 from simcore.streaming.base_streamer import BaseStreamer
 
@@ -49,8 +51,13 @@ class GStreamerUDPStreamer(BaseStreamer):
         )
 
         try:
+            gst_binary = shutil.which('gst-launch-1.0') or shutil.which('gst-launch-1.0.exe')
+            if not gst_binary:
+                print("Error: gst-launch-1.0 not found. Install GStreamer to use UDP streaming.")
+                self._initialized = False
+                return
             self._process = subprocess.Popen(
-                ['gst-launch-1.0'] + pipeline.split(),
+                [gst_binary] + pipeline.split(),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
