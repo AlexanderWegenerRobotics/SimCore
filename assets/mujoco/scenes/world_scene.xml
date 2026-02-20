@@ -6,6 +6,10 @@
     <flag eulerdamp="disable"/>
   </option>
 
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+  </visual>
+
   <custom>
     <numeric data="12" name="max_contact_points"/>
   </custom>
