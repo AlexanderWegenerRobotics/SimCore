@@ -59,6 +59,8 @@ class SimulationModel:
         self._log_counter = 0
         self._log_interval = max(1, int((1.0 / self.log_frequency) / self.dt))
 
+        self._log_callbacks = []
+
         self._target_site_id = None
         try:
             self._target_site_id = mj.mj_name2id(self.mj_model, mj.mjtObj.mjOBJ_SITE, "target_sphere")
@@ -325,6 +327,11 @@ class SimulationModel:
                     
                     self.logger.log_bundle(object_name, object_data)
 
+            for callback in self._log_callbacks:
+                bundles = callback(self.mj_model, self.mj_data)
+                for bundle_name, data in bundles.items():
+                    self.logger.log_bundle(bundle_name, data)
+
     def set_target_pose(self, position, quaternion=None):
         """Update target visualization sphere"""
         if self._target_site_id is None:
@@ -334,3 +341,15 @@ class SimulationModel:
             self.mj_model.site_pos[self._target_site_id] = position
             if quaternion is not None:
                 self.mj_model.site_quat[self._target_site_id] = quaternion
+
+    def register_log_callback(self, callback):
+        self._log_callbacks.append(callback)
+
+    def get_sensor_data(self) -> Dict[str, np.ndarray]:
+        with self._lock:
+            data = {}
+            for i in range(self.mj_model.nsensor):
+                name = mj.mj_id2name(self.mj_model, mj.mjtObj.mjOBJ_SENSOR, i)
+                if name:
+                    data[name] = self.mj_data.sensor(name).data.copy()
+            return data

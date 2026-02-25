@@ -1,7 +1,13 @@
 from typing import Dict, List
 
 from simcore.streaming.base_streamer import BaseStreamer
-from simcore.streaming.gstreamer_udp_streamer import GStreamerUDPStreamer
+
+try:
+    from simcore.streaming.gstreamer_udp_streamer import GStreamerUDPStreamer
+except ImportError:
+    GStreamerUDPStreamer = None
+
+#from simcore.streaming.gstreamer_udp_streamer import GStreamerUDPStreamer
 
 # Registry of available streamer backends
 STREAMER_BACKENDS = {
