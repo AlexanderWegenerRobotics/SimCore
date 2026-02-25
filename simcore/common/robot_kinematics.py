@@ -40,3 +40,17 @@ class RobotKinematics:
     def get_coriolis_matrix(self, q, qd):
         pin.computeCoriolisMatrix(self.model, self.data, q, qd)
         return self.data.C[:7, :7]
+    
+    def get_internal_wrench(self, q, qd, tau_m):
+        """ Internal wrench F_in = J_body†T (tau_m - C*qd - g)"""
+        C = self.get_coriolis_matrix(q, qd)
+        g = self.get_gravity_torques(q)
+        # Need body Jacobian (LOCAL frame, not LOCAL_WORLD_ALIGNED)
+        pin.computeJointJacobians(self.model, self.data, q)
+        J_body = pin.getFrameJacobian(
+            self.model, self.data, 
+            self.ee_frame_id, 
+            pin.ReferenceFrame.LOCAL
+        )
+        J_body_pinv = np.linalg.pinv(J_body)
+        return J_body_pinv.T @ (tau_m - C @ qd - g)
