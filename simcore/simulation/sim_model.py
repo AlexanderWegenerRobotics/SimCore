@@ -157,6 +157,7 @@ class SimulationModel:
 
         # Compile final model
         compiled_model = world_spec.compile()
+        #world_spec.to_file("composed_scene.xml")
         
         # Extract IDs from compiled model
         all_entities = {**devices, **objects}

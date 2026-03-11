@@ -45,7 +45,6 @@ class RobotKinematics:
         """ Internal wrench F_in = J_body†T (tau_m - C*qd - g)"""
         C = self.get_coriolis_matrix(q, qd)
         g = self.get_gravity_torques(q)
-        # Need body Jacobian (LOCAL frame, not LOCAL_WORLD_ALIGNED)
         pin.computeJointJacobians(self.model, self.data, q)
         J_body = pin.getFrameJacobian(
             self.model, self.data, 
@@ -54,3 +53,17 @@ class RobotKinematics:
         )
         J_body_pinv = np.linalg.pinv(J_body)
         return J_body_pinv.T @ (tau_m - C @ qd - g)
+    
+    def get_cartesian_mass_matrix(self, q):
+        """Cartesian mass matrix: Lambda = (J M^-1 J^T)^-1"""
+        M = self.get_mass_matrix(q)         # joint space mass matrix (7x7)
+        J = self.get_jacobian(q)            # Jacobian (6x7)
+
+        # Compute M^-1 J^T first for efficiency
+        M_inv       = np.linalg.inv(M)      # joint space mass matrix inverse
+        J_M_inv_JT  = J @ M_inv @ J.T      # (6x6) intermediate term
+
+        # Cartesian mass matrix via inverse of J M^-1 J^T
+        Lambda = np.linalg.inv(J_M_inv_JT)  # (6x6) cartesian mass matrix
+
+        return Lambda
