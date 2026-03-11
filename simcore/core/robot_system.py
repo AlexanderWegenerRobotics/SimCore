@@ -110,8 +110,6 @@ class RobotSystem:
         self.control_thread = threading.Thread(target=self._loop, daemon=False)
         self.control_thread.start()
         
-        # Run frame distributor on main thread (blocks here)
-        # This handles display + video logging + streaming in one loop
         try:
             self.distributor.run()
         except KeyboardInterrupt:
@@ -131,14 +129,10 @@ class RobotSystem:
             self.control_thread.join(timeout=2.0)
         
         self.distributor.stop()
-
         self.streamer_manager.stop()
-        
         self.sim.stop()
-        
         if self.video_logger is not None:
             self.video_logger.close()
-        
         self.logger.save()
         
         print("Robot system stopped")

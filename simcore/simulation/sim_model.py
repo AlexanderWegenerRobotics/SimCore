@@ -353,3 +353,22 @@ class SimulationModel:
                 if name:
                     data[name] = self.mj_data.sensor(name).data.copy()
             return data
+        
+    def reset_device_state(self, device_name: str, q_init: np.ndarray) -> None:
+        device = self.devices[device_name]
+        with self._lock:
+            self.mj_data.qpos[device.dof_ids] = q_init
+            self.mj_data.qvel[device.dof_ids] = 0.0
+            self.mj_data.qacc[device.dof_ids] = 0.0
+            mj.mj_forward(self.mj_model, self.mj_data)
+
+    def reset_object_pose(self, object_name: str, pos: np.ndarray, quat: np.ndarray) -> None:
+        # quat wxyz, mujoco native
+        obj = self.objects[object_name]
+        if not obj.body_ids:
+            raise ValueError(f"Object '{object_name}' has no bodies")
+        body_id = obj.body_ids[0]
+        with self._lock:
+            self.mj_model.body_pos[body_id] = pos
+            self.mj_model.body_quat[body_id] = quat
+            mj.mj_forward(self.mj_model, self.mj_data)

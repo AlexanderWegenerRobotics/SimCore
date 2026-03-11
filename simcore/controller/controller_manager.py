@@ -143,3 +143,8 @@ class ControllerManager:
             'impedance': 2
         }
         return mode_map.get(mode, -1)
+    
+    def get_ee_pose_world(self, state) -> Pose:
+        """Returns current end-effector pose in world frame given joint state."""
+        pose_base = self.kin_model.forward_kinematics(state.q)
+        return self.transform_base_to_world_frame(pose_base)
