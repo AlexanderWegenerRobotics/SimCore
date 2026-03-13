@@ -173,7 +173,7 @@ class RobotSystem:
                 raise ValueError(f"Unknown device: {device_name}")
             
             # Update only provided keys
-            for key in ['q', 'x', 'xd']:
+            for key in ['q', 'x', 'xd', 'Fff']:
                 if key in target:
                     self._target[device_name][key] = target[key]
 
@@ -190,6 +190,9 @@ class RobotSystem:
         if device_name in self.ctrl:
             self.ctrl[device_name].set_mode(mode)
 
+    def get_timestep(self):
+        return self.sim.dt
+
     def _resolve_asset_paths(self, config):
         """Replace relative assets/ paths with absolute SimCore asset paths."""
         if isinstance(config, dict):
@@ -199,6 +202,7 @@ class RobotSystem:
         elif isinstance(config, str) and config.startswith("assets/"):
             return get_asset_path(config.removeprefix("assets/"))
         return config
+    
 
 if __name__ == "__main__":
     cfg = load_yaml("configs/global_config.yaml")

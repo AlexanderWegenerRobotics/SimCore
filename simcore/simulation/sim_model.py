@@ -270,8 +270,7 @@ class SimulationModel:
         while self.running:
             with self._lock:
                 self.mj_data.ctrl[:] = self._command
-
-            mj.mj_step(self.mj_model, self.mj_data)
+                mj.mj_step(self.mj_model, self.mj_data)
 
             if self.logger is not None:
                 self._log_counter += 1
@@ -283,9 +282,9 @@ class SimulationModel:
             sleep_time = self.dt - elapsed
             if sleep_time > 0:
                 time.sleep(sleep_time)
-            else:
+            elif sleep_time < -self.dt * 0.25:
                 print(f"Simulation loop overrun: {-sleep_time:.4f}s")
-            last_time = time.time()
+                last_time = time.time()
 
     def _log_step(self):
         """Log current simulation state."""

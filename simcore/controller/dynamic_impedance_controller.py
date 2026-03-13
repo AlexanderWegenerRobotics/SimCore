@@ -64,11 +64,11 @@ class DynamicImpedanceController(BaseController):
         de = xd_desired - xd_current
 
         # Cartesian force: impedance + inertia feedforward + coriolis feedforward + feedforward wrench
-        F  = self.K_cart @ e                                  # stiffness
-        F += self.D_cart @ de                                 # damping
-        F += Lambda @ xdd_desired                             # inertia feedforward
-        F += Lambda @ (J @ np.linalg.inv(M) @ C @ qd)        # coriolis feedforward
-        F += F_ff                                             # feedforward wrench
+        F  = self.K_cart @ e                            # stiffness
+        F += self.D_cart @ de                           # damping
+        F += Lambda @ xdd_desired                       # inertia feedforward
+        F += Lambda @ (J @ np.linalg.inv(M) @ C @ qd)   # coriolis feedforward
+        F += F_ff                                        # feedforward wrench
 
         # Map to joint torques via Jacobian transpose
         tau_task = J.T @ F

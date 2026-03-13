@@ -120,8 +120,7 @@ class ControllerManager:
             'q':        self._current_state.q,
             'qd':       self._current_state.qd,
             'q_target': self._current_target.get('q', np.zeros_like(self._current_state.q)),
-            'x_target': self._current_target['x'].as_7d() if isinstance(
-                            self._current_target.get('x'), Pose) else np.zeros(7),
+            'x_target': self._current_target['x'].as_7d() if isinstance(self._current_target.get('x'), Pose) else np.zeros(7),
             'xd_target': self._current_target.get('xd', np.zeros(6)),
             'tau':       self._current_output,
             'mode':      np.array([self._mode_to_int(self.mode)])
@@ -129,10 +128,14 @@ class ControllerManager:
 
         if self.kin_model is not None:
             x_current_base = self.kin_model.forward_kinematics(self._current_state.q)
-            xd_current     = self.kin_model.get_ee_velocity(
-                                self._current_state.q, self._current_state.qd)
-            log_data['x_current']  = self.transform_base_to_world_frame(x_current_base).as_7d()
+            xd_current     = self.kin_model.get_ee_velocity(self._current_state.q, self._current_state.qd)
+            log_data['x_current'] = self.transform_base_to_world_frame(x_current_base).as_7d()
             log_data['xd_current'] = xd_current
+            log_data['f_internal'] = self.kin_model.get_internal_wrench(self._current_state.q, self._current_state.qd, self._current_output)
+            log_data['tau_gravity'] = self.kin_model.get_gravity_torques(self._current_state.q)
+            log_data['cartesian_mass']  = self.kin_model.get_cartesian_mass_matrix(self._current_state.q).flatten()
+            log_data['Fff']        = self._current_target.get('Fff', np.zeros(6))   # feedforward command sent
+            log_data['f_ext']      = self._current_target.get('f_ext', np.zeros(6)) # if you log sensor data here
 
         self.logger.log_bundle(bundle_name, log_data)
 
@@ -149,3 +152,6 @@ class ControllerManager:
         """Returns current end-effector pose in world frame given joint state."""
         pose_base = self.kin_model.forward_kinematics(state.q)
         return self.transform_base_to_world_frame(pose_base)
+    
+    def get_internal_wrench(self, q, qd, tau) -> np.ndarray:
+        return self.kin_model.get_internal_wrench(q, qd, tau)
