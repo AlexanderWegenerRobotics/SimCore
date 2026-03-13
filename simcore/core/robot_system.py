@@ -162,7 +162,8 @@ class RobotSystem:
             if sleep_time > 0:
                 time.sleep(sleep_time)
             else:
-                print(f"Control loop overrun: {-sleep_time:.4f}s")
+                pass
+                #print(f"Control loop overrun: {-sleep_time:.4f}s")
         
         print("Control loop stopped")
     

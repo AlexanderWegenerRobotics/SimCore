@@ -283,7 +283,8 @@ class SimulationModel:
             if sleep_time > 0:
                 time.sleep(sleep_time)
             elif sleep_time < -self.dt * 0.25:
-                print(f"Simulation loop overrun: {-sleep_time:.4f}s")
+                pass
+                #print(f"Simulation loop overrun: {-sleep_time:.4f}s")
             last_time = time.time()
 
     def _log_step(self):
