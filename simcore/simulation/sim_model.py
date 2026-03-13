@@ -284,7 +284,7 @@ class SimulationModel:
                 time.sleep(sleep_time)
             elif sleep_time < -self.dt * 0.25:
                 print(f"Simulation loop overrun: {-sleep_time:.4f}s")
-                last_time = time.time()
+            last_time = time.time()
 
     def _log_step(self):
         """Log current simulation state."""
