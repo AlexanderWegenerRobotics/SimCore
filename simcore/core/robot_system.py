@@ -18,6 +18,7 @@ class RobotSystem:
         self.config = config
         self.sim_cfg = load_yaml(self.config.get("scene_config"))
         self.sim_cfg = self._resolve_asset_paths(self.sim_cfg)
+        self.headless = self.sim_cfg.get("headless", False)
 
         log_dir = Path(self.config.get("logging_path", "log/"))
         trial_name = self.config.get("trial_name", f"trial_{int(time.time())}")
@@ -28,7 +29,7 @@ class RobotSystem:
 
         # ── Video logger (optional, config-driven) ────────────────
         self.video_logger = None
-        if self.sim_cfg.get('video_logging', {}).get('enabled', False):
+        if not self.headless and self.sim_cfg.get('video_logging', {}).get('enabled', False):
             fps = self.sim_cfg['video_logging'].get('frequency', 10)
             self.video_logger = VideoLogger(trial_dir, fps=fps)
             print(f"Video logging enabled at {fps} fps")
@@ -38,18 +39,22 @@ class RobotSystem:
 
         # ── Frame distributor (replaces SimulationDisplay) ────────
         #    Renders once, distributes to: display + video logger + streamers
-        self.distributor = FrameDistributor(sim=self.sim, config=self.sim_cfg)
+        #    Skipped entirely in headless mode
+        self.distributor = None
+        self.streamer_manager = None
+        if not self.headless:
+            self.distributor = FrameDistributor(sim=self.sim, config=self.sim_cfg)
 
-        display_enabled = self.sim_cfg.get('display', {}).get('enabled', True)
-        self.distributor.set_display_enabled(display_enabled)
+            display_enabled = self.sim_cfg.get('display', {}).get('enabled', True)
+            self.distributor.set_display_enabled(display_enabled)
 
-        if self.video_logger is not None:
-            self.distributor.set_video_logger(self.video_logger)
+            if self.video_logger is not None:
+                self.distributor.set_video_logger(self.video_logger)
 
-        # ── Streamer manager (optional, config-driven) ────────────
-        self.streamer_manager = StreamerManager(self.sim_cfg)
-        if self.streamer_manager.enabled:
-            self.distributor.set_streamer_manager(self.streamer_manager)
+            # ── Streamer manager (optional, config-driven) ────────────
+            self.streamer_manager = StreamerManager(self.sim_cfg)
+            if self.streamer_manager.enabled:
+                self.distributor.set_streamer_manager(self.streamer_manager)
 
         # ── Controllers & kinematics ──────────────────────────────
         self.ctrl, kin_model = {}, {}
@@ -100,7 +105,14 @@ class RobotSystem:
         self._lock = threading.Lock()
     
     def run(self):
-        """Start all subsystems and block on frame distributor (main thread)"""
+        """Start all subsystems and block on frame distributor (main thread)."""
+        if self.headless:
+            # Headless: no threads, no display — just mark as ready
+            self.running = True
+            self.sim.running = True
+            print("System running in headless mode")
+            return
+
         self.running = True
         
         # Start physics thread
@@ -124,6 +136,12 @@ class RobotSystem:
         
         print("Shutting down robot system...")
         self.running = False
+
+        if self.headless:
+            self.sim.running = False
+            self.logger.save()
+            print("Robot system stopped (headless)")
+            return
         
         if hasattr(self, 'control_thread') and self.control_thread.is_alive():
             self.control_thread.join(timeout=2.0)
@@ -136,9 +154,23 @@ class RobotSystem:
         self.logger.save()
         
         print("Robot system stopped")
+
+    def step(self):
+        """Single synchronous step: read state -> compute control -> physics step.
+        
+        For headless mode. One call = one control cycle = one physics step.
+        Since sim.dt == self.dt (both 200Hz), no substep loop needed.
+        """
+        states = self.sim.get_state()
+        with self._lock:
+            target = self._target.copy()
+        for name, ctrl in self.ctrl.items():
+            ctrl_vec = ctrl.compute_control(states[name], target[name])
+            self.sim.set_command(tau=ctrl_vec, device_name=name)
+        self.sim.step()
     
     def _loop(self):
-        """Main control loop"""
+        """Main control loop (threaded, real-time mode only)"""
         print("Control loop started")
         
         while self.running:

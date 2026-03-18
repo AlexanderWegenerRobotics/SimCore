@@ -1,0 +1,48 @@
+world_model: assets/mujoco/scenes/world_scene.xml
+render_fps: 20
+
+headless: False
+display:
+  enabled: True
+  layout: horizontal
+  window_name: "SimCore Example"
+
+render_cameras:
+  - name: overview
+    attachment: False
+    enabled: True
+    width: 640
+    height: 480
+
+logging:
+  enabled: True
+  frequency: 200
+
+devices:
+  - name: arm
+    type: robot
+    enabled: True
+    model_path: assets/mujoco/robots/franka_fr3/fr3.xml
+    urdf_path: assets/urdf/franka_fr3/panda.urdf
+    urdf_ee_name: fr3_link8
+    ctrl_param: examples/configs/panda_arm.yaml
+    dof: 7
+    base_pose:
+      position: [0, 0, 0.425]
+      orientation: [1, 0, 0, 0]
+    q0: [0.0, -0.785398, 0.0, -2.356194, 0.0, 1.570796, 0.785398]
+
+objects:
+  - name: table
+    type: static
+    model_path: assets/mujoco/props/table.xml
+    pose:
+      position: [0, 0, 0]
+      orientation: [1, 0, 0, 0]
+
+cameras:
+  - name: overview
+    type: fixed
+    pos: [0.8, 0.0, 0.8]
+    look_at: [0.2, 0.0, 0.6]
+    fovy: 90

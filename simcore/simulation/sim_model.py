@@ -231,6 +231,22 @@ class SimulationModel:
         if self.physics_thread.is_alive():
             self.physics_thread.join()
 
+    def step(self):
+        """Single synchronous physics step (for headless mode).
+        
+        Applies the current command, steps physics, and handles logging.
+        No threading or sleep — caller controls the pace.
+        """
+        with self._lock:
+            self.mj_data.ctrl[:] = self._command
+            mj.mj_step(self.mj_model, self.mj_data)
+
+        if self.logger is not None:
+            self._log_counter += 1
+            if self._log_counter >= self._log_interval:
+                self._log_step()
+                self._log_counter = 0
+
     def get_state(self) -> Dict[str, RobotState]:
         states = {}
         with self._lock:
