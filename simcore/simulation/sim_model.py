@@ -258,6 +258,26 @@ class SimulationModel:
                     tau=self.mj_data.actuator_force[device.actuator_ids].copy()
                 )
         return states
+    
+    def get_object_states(self) -> Dict:
+        states = {}
+        with self._lock:
+            for obj_name, obj in self.objects.items():
+                if len(obj.body_ids) == 0:
+                    continue
+
+                body_id = obj.body_ids[0]
+                state = {
+                    "pos": self.mj_data.xpos[body_id].copy(),
+                    "quat": self.mj_data.xquat[body_id].copy(),
+                    "vel": self.mj_data.cvel[body_id].copy(),
+                }
+                if len(obj.dof_ids) > 0:
+                    state["q"] = self.mj_data.qpos[obj.dof_ids].copy()
+                    state["qd"] = self.mj_data.qvel[obj.dof_ids].copy()
+
+                states[obj_name] = state
+        return states
 
     def set_command(self, tau: np.array, device_name):
         if device_name not in self.devices:
@@ -281,9 +301,9 @@ class SimulationModel:
         return renderer.render()
 
     def _physics_loop(self):
-        last_time = time.time()
 
         while self.running:
+            last_time = time.time()
             with self._lock:
                 self.mj_data.ctrl[:] = self._command
                 mj.mj_step(self.mj_model, self.mj_data)
@@ -301,7 +321,6 @@ class SimulationModel:
             elif sleep_time < -self.dt * 0.25:
                 pass
                 #print(f"Simulation loop overrun: {-sleep_time:.4f}s")
-            last_time = time.time()
 
     def _log_step(self):
         """Log current simulation state."""

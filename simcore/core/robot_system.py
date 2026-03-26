@@ -218,6 +218,10 @@ class RobotSystem:
         """Get current state"""
         return self.sim.get_state()
     
+    def get_object_states(self) -> Dict:
+        """Get current object state"""
+        return self.sim.get_object_states()
+    
     def set_controller_mode(self, device_name: str, mode: str):
         """Switch controller mode"""
         if device_name in self.ctrl:

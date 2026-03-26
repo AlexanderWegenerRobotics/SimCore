@@ -12,11 +12,9 @@ license = {text = "MIT"}
 authors = [
     {name = "Alexander Wegener"}
 ]
-
 dependencies = [
     "numpy",
     "mujoco",
-    "pinocchio",
     "scipy",
     "opencv-python",
     "pyyaml",
