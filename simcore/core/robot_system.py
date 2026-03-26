@@ -100,6 +100,7 @@ class RobotSystem:
 
         self.control_rate = self.sim_cfg.get("control_rate", 200.0)
         self.dt = 1.0 / self.control_rate
+        self.n_substeps = max(1, round(1.0 / (self.control_rate * self.sim.dt)))
         self.running = False
         
         self._lock = threading.Lock()
@@ -107,18 +108,15 @@ class RobotSystem:
     def run(self):
         """Start all subsystems and block on frame distributor (main thread)."""
         if self.headless:
-            # Headless: no threads, no display — just mark as ready
             self.running = True
             self.sim.running = True
-            print("System running in headless mode")
+            print(f"System running in headless mode (n_substeps={self.n_substeps})")
             return
 
         self.running = True
         
-        # Start physics thread
         self.sim.start()
         
-        # Start control loop in separate thread
         self.control_thread = threading.Thread(target=self._loop, daemon=False)
         self.control_thread.start()
         
@@ -158,8 +156,8 @@ class RobotSystem:
     def step(self):
         """Single synchronous step: read state -> compute control -> physics step.
         
-        For headless mode. One call = one control cycle = one physics step.
-        Since sim.dt == self.dt (both 200Hz), no substep loop needed.
+        For headless mode. One call = one control cycle = n_substeps physics steps.
+        Runs as fast as the CPU allows — no sleeps.
         """
         states = self.sim.get_state()
         with self._lock:
@@ -167,35 +165,34 @@ class RobotSystem:
         for name, ctrl in self.ctrl.items():
             ctrl_vec = ctrl.compute_control(states[name], target[name])
             self.sim.set_command(tau=ctrl_vec, device_name=name)
-        self.sim.step()
+        for _ in range(self.n_substeps):
+            self.sim.step()
     
     def _loop(self):
         """Main control loop (threaded, real-time mode only)"""
-        print("Control loop started")
+        print(f"Control loop started (n_substeps={self.n_substeps})")
         
         while self.running:
             start_time = time.time()
             
-            # Get current state from simulation
             states = self.sim.get_state()
             
-            # Get target
             with self._lock:
                 target = self._target.copy()
             
-            # Compute control & push to simulation
             for name, ctrl in self.ctrl.items():
                 ctrl_vec = ctrl.compute_control(states[name], target[name])
                 self.sim.set_command(tau=ctrl_vec, device_name=name)
             
-            # Timing
+            for _ in range(self.n_substeps):
+                self.sim.signal_step()
+                while self.sim._command_event.is_set():
+                    time.sleep(0.00005)
+            
             elapsed = time.time() - start_time
             sleep_time = self.dt - elapsed
             if sleep_time > 0:
                 time.sleep(sleep_time)
-            else:
-                pass
-                #print(f"Control loop overrun: {-sleep_time:.4f}s")
         
         print("Control loop stopped")
     
@@ -205,12 +202,10 @@ class RobotSystem:
             if device_name not in self._target:
                 raise ValueError(f"Unknown device: {device_name}")
             
-            # Update only provided keys
             for key in ['q', 'x', 'xd', 'Fff']:
                 if key in target:
                     self._target[device_name][key] = target[key]
 
-            # Visualize Cartesian target if provided
             if verbose and 'x' in target:
                 self.sim.set_target_pose(target['x'][:3])
     

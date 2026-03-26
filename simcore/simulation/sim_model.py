@@ -48,6 +48,7 @@ class SimulationModel:
         self._setup_cameras()
 
         self._lock = threading.Lock()
+        self._command_event = threading.Event()
         self.physics_thread = threading.Thread(target=self._physics_loop, daemon=True)
         self._command = np.zeros(self.mj_model.nu)
 
@@ -228,6 +229,7 @@ class SimulationModel:
     def stop(self):
         """Stop simulation gracefully"""
         self.running = False
+        self._command_event.set()
         if self.physics_thread.is_alive():
             self.physics_thread.join()
 
@@ -237,9 +239,8 @@ class SimulationModel:
         Applies the current command, steps physics, and handles logging.
         No threading or sleep — caller controls the pace.
         """
-        with self._lock:
-            self.mj_data.ctrl[:] = self._command
-            mj.mj_step(self.mj_model, self.mj_data)
+        self.mj_data.ctrl[:] = self._command
+        mj.mj_step(self.mj_model, self.mj_data)
 
         if self.logger is not None:
             self._log_counter += 1
@@ -286,6 +287,10 @@ class SimulationModel:
         with self._lock:
             self._command[device.actuator_ids] = tau
 
+    def signal_step(self):
+        """Called by control thread after set_command to trigger one physics step."""
+        self._command_event.set()
+
     def get_camera_image(self, camera_name: str) -> Optional[np.ndarray]:
         """Render image from specified camera."""
         if camera_name not in self.renderers:
@@ -294,16 +299,17 @@ class SimulationModel:
         renderer = self.renderers[camera_name]
         cam_id = renderer._cam_id
         
-        # Update renderer with current state
         renderer.update_scene(self.mj_data, camera=cam_id)
         
-        # Render and return pixels (RGB format)
         return renderer.render()
 
     def _physics_loop(self):
 
         while self.running:
-            last_time = time.time()
+            if not self._command_event.wait(timeout=0.1):
+                continue
+            self._command_event.clear()
+
             with self._lock:
                 self.mj_data.ctrl[:] = self._command
                 mj.mj_step(self.mj_model, self.mj_data)
@@ -313,14 +319,6 @@ class SimulationModel:
                 if self._log_counter >= self._log_interval:
                     self._log_step()
                     self._log_counter = 0
-                        
-            elapsed = time.time() - last_time
-            sleep_time = self.dt - elapsed
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            elif sleep_time < -self.dt * 0.25:
-                pass
-                #print(f"Simulation loop overrun: {-sleep_time:.4f}s")
 
     def _log_step(self):
         """Log current simulation state."""
@@ -328,7 +326,6 @@ class SimulationModel:
             return
         
         with self._lock:
-            # Log all devices (robots, sensors)
             for device_name, device_info in self.devices.items():
                 if len(device_info.dof_ids) > 0:
                     state_data = {
@@ -339,7 +336,6 @@ class SimulationModel:
                         'ctrl': self._command[device_info.actuator_ids].copy()
                     }
                     
-                    # Add base pose if device has bodies
                     if len(device_info.body_ids) > 0:
                         base_body_id = device_info.body_ids[0]
                         state_data['base_pos'] = self.mj_data.xpos[base_body_id].copy()
@@ -347,7 +343,6 @@ class SimulationModel:
                     
                     self.logger.log_bundle(device_name, state_data)
             
-            # Log all objects (static/dynamic props)
             for object_name, object_info in self.objects.items():
                 if len(object_info.body_ids) > 0:
                     object_data = {
@@ -355,7 +350,6 @@ class SimulationModel:
                         'quat': self.mj_data.xquat[object_info.body_ids[0]].copy()
                     }
                     
-                    # If object has joints, log those too
                     if len(object_info.dof_ids) > 0:
                         object_data['q'] = self.mj_data.qpos[object_info.dof_ids].copy()
                         object_data['qd'] = self.mj_data.qvel[object_info.dof_ids].copy()
