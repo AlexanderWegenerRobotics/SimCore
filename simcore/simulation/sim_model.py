@@ -375,6 +375,10 @@ class SimulationModel:
     def register_log_callback(self, callback):
         self._log_callbacks.append(callback)
 
+    def forward(self):
+        with self._lock:
+            mj.mj_forward(self.mj_model, self.mj_data)
+
     def get_sensor_data(self) -> Dict[str, np.ndarray]:
         with self._lock:
             data = {}
@@ -392,6 +396,7 @@ class SimulationModel:
             self.mj_data.qacc[device.dof_ids] = 0.0
             mj.mj_forward(self.mj_model, self.mj_data)
 
+    ''' 
     def reset_object_pose(self, object_name: str, pos: np.ndarray, quat: np.ndarray) -> None:
         # quat wxyz, mujoco native
         obj = self.objects[object_name]
@@ -401,4 +406,28 @@ class SimulationModel:
         with self._lock:
             self.mj_model.body_pos[body_id] = pos
             self.mj_model.body_quat[body_id] = quat
+            mj.mj_forward(self.mj_model, self.mj_data)
+            print(f"Object {object_name} as been reset to {pos}, {quat}")
+    '''
+
+    def reset_object_pose(self, object_name: str, pos: np.ndarray, quat: np.ndarray) -> None:
+        obj = self.objects[object_name]
+        if not obj.body_ids:
+            raise ValueError(f"Object '{object_name}' has no bodies")
+        body_id = obj.body_ids[0]
+
+        joint_ids = [j for j in range(self.mj_model.njnt) if self.mj_model.jnt_bodyid[j] == body_id]
+
+        with self._lock:
+            if joint_ids and self.mj_model.jnt_type[joint_ids[0]] == mj.mjtJoint.mjJNT_FREE:
+                joint_id  = joint_ids[0]
+                qadr      = self.mj_model.jnt_qposadr[joint_id]
+                dadr      = self.mj_model.jnt_dofadr[joint_id]
+                self.mj_data.qpos[qadr:qadr + 3] = pos
+                self.mj_data.qpos[qadr + 3:qadr + 7] = quat  # wxyz
+                self.mj_data.qvel[dadr:dadr + 6] = 0.0
+            else:
+                self.mj_model.body_pos[body_id]  = pos
+                self.mj_model.body_quat[body_id] = quat
+
             mj.mj_forward(self.mj_model, self.mj_data)
