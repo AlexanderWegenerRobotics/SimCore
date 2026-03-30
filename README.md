@@ -34,6 +34,7 @@ pip install -e .
 ```
 
 **Dependencies:** `mujoco`, `pinocchio`, `numpy`, `pyyaml`, `h5py`, `opencv-python`
+**Conda-managed:** `pinocchio` (install via `conda-forge` before `pip install -e .`)
 
 ## Quick Start
 
