@@ -25,7 +25,9 @@ class RobotSystem:
         trial_dir = log_dir / trial_name
         trial_dir.mkdir(parents=True, exist_ok=True)
         
-        self.logger = DataLogger(trial_name, str(log_dir))
+        logging_cfg = self.sim_cfg.get("logging", {})
+        logging_enabled = logging_cfg.get("enabled", True)
+        self.logger = DataLogger(trial_name, str(log_dir)) if logging_enabled else None
 
         # ── Video logger (optional, config-driven) ────────────────
         self.video_logger = None
