@@ -29,6 +29,7 @@ your_project/
 
 ```bash
 git clone https://github.com/yourname/SimCore.git
+conda install -c conda-forge pinocchio
 cd SimCore
 pip install -e .
 ```
