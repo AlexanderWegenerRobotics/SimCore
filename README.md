@@ -29,9 +29,9 @@ your_project/
 
 ```bash
 git clone https://github.com/yourname/SimCore.git
-conda install -c conda-forge pinocchio
 cd SimCore
 pip install -e .
+conda install -c conda-forge pinocchio
 ```
 
 **Dependencies:** `mujoco`, `pinocchio`, `numpy`, `pyyaml`, `h5py`, `opencv-python`
