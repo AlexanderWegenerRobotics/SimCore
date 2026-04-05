@@ -139,7 +139,10 @@ class RobotSystem:
 
         if self.headless:
             self.sim.running = False
-            self.logger.save()
+            if self.logger is not None:
+                self.logger.save()
+            else:
+                print("[INFO]: Logger was deactivated during run. So no logging will be created.")
             print("Robot system stopped (headless)")
             return
         
