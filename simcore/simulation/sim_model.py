@@ -30,13 +30,23 @@ class DeviceInfo:
         # Initial configuration
         self.q0: Optional[np.ndarray] = None
 
+class TrailInfo:
+    def __init__(self, name: str, n_points: int, hidden_pos: List[float]):
+        self.name       = name
+        self.n_points   = n_points
+        self.hidden_pos = np.array(hidden_pos, dtype=float)
+        self.mocap_ids: List[int] = []
+        self.pointer    = 0
+        self.active_count = 0
+
+
 class SimulationModel:
 
     def __init__(self, config, logger=None):
         self.config = config
         self.logger = logger
         
-        self.mj_model, self.devices, self.objects = self._build_model_from_config(config)
+        self.mj_model, self.devices, self.objects, self.trails = self._build_model_from_config(config)
         self.mj_data = mj.MjData(self.mj_model)
 
         for device_name, device_info in self.devices.items():
@@ -156,6 +166,23 @@ class SimulationModel:
                 )
                 print(f"Added tracking camera: {cam_name} -> {target_body}")
 
+        # Add visualization trails
+        trails = {}
+        for trail_cfg in config.get("visualizations", {}).get("trails", []):
+            if not trail_cfg.get("enabled", True):
+                continue
+            name       = trail_cfg["name"]
+            n_points   = trail_cfg["n_points"]
+            hidden_pos = trail_cfg.get("hidden_pos", [0.0, 0.0, -1.0])
+            color      = trail_cfg.get("color", [0.2, 0.6, 1.0, 0.8])
+            radius     = trail_cfg.get("radius", 0.005)
+
+            for i in range(n_points):
+                body = world_spec.worldbody.add_body(name=f"{name}_{i}", mocap=True, pos=hidden_pos)
+                body.add_geom(type=mj.mjtGeom.mjGEOM_SPHERE, size=[radius, 0, 0], rgba=color, contype=0, conaffinity=0)
+
+            trails[name] = TrailInfo(name, n_points, hidden_pos)
+
         # Compile final model
         compiled_model = world_spec.compile()
         #world_spec.to_file("composed_scene.xml")
@@ -164,7 +191,14 @@ class SimulationModel:
         all_entities = {**devices, **objects}
         self._extract_device_ids(model=compiled_model, entities=all_entities)
 
-        return compiled_model, devices, objects
+        # Cache mocap body IDs for trails
+        for trail_name, trail_info in trails.items():
+            for i in range(trail_info.n_points):
+                body_id = mj.mj_name2id(compiled_model, mj.mjtObj.mjOBJ_BODY, f"{trail_name}_{i}")
+                mocap_id = compiled_model.body_mocapid[body_id]
+                trail_info.mocap_ids.append(mocap_id)
+
+        return compiled_model, devices, objects, trails
     
     def _extract_device_ids(self, model: mj.MjModel, entities: Dict[str, DeviceInfo]):
         for entity_info in entities.values():
@@ -361,6 +395,26 @@ class SimulationModel:
                 bundles = callback(self.mj_model, self.mj_data)
                 for bundle_name, data in bundles.items():
                     self.logger.log_bundle(bundle_name, data)
+
+    def set_trail(self, name: str, position: np.ndarray):
+        if name not in self.trails:
+            return
+        trail = self.trails[name]
+        mocap_id = trail.mocap_ids[trail.pointer]
+        with self._lock:
+            self.mj_data.mocap_pos[mocap_id] = position
+        trail.pointer = (trail.pointer + 1) % trail.n_points
+        trail.active_count = min(trail.active_count + 1, trail.n_points)
+
+    def clear_trail(self, name: str):
+        if name not in self.trails:
+            return
+        trail = self.trails[name]
+        with self._lock:
+            for mocap_id in trail.mocap_ids:
+                self.mj_data.mocap_pos[mocap_id] = trail.hidden_pos
+        trail.pointer      = 0
+        trail.active_count = 0
 
     def set_target_pose(self, position, quaternion=None):
         """Update target visualization sphere"""

@@ -237,6 +237,12 @@ class RobotSystem:
             return get_asset_path(config.removeprefix("assets/"))
         return config
     
+    def set_trail(self, name: str, position: np.ndarray):
+        self.sim.set_trail(name, position)
+
+    def clear_trail(self, name: str):
+        self.sim.clear_trail(name)
+
     def set_controller_params(self, device_name: str, params: dict, mode: str = None):
         if device_name not in self.ctrl:
             raise ValueError(f"Unknown device: {device_name}")
