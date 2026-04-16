@@ -95,3 +95,13 @@ class DynamicImpedanceController(BaseController):
 
     def reset(self):
         pass
+
+    def set_params(self, params: dict):
+        if 'K_cart' in params:
+            self.K_cart = np.diag(params['K_cart'])
+        if 'D_cart' in params:
+            self.D_cart = np.diag(params['D_cart'])
+        if 'K_null' in params:
+            self.K_null = params['K_null']
+        if 'q_nominal' in params:
+            self.q_nominal = np.array(params['q_nominal'])

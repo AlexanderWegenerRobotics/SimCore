@@ -91,7 +91,7 @@ class ControllerManager:
 
             target = target_base
 
-        ctrl_vec             = self.active_controller.compute_control(state, target)
+        ctrl_vec = self.active_controller.compute_control(state, target)
         self._current_output = ctrl_vec
 
         if self.logger is not None:
@@ -155,3 +155,9 @@ class ControllerManager:
     
     def get_internal_wrench(self, q, qd, tau) -> np.ndarray:
         return self.kin_model.get_internal_wrench(q, qd, tau)
+    
+    def set_params(self, params: dict, mode: str = None):
+        target = self.controllers.get(mode or self.mode)
+        if target is None or not hasattr(target, 'set_params'):
+            raise ValueError(f"Controller for mode '{mode or self.mode}' doesn't support set_params")
+        target.set_params(params)

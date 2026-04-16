@@ -27,3 +27,9 @@ class JointPositionController(BaseController):
     
     def reset(self):
         pass
+
+    def set_params(self, params: dict):
+        if 'kp' in params:
+            self.kp = np.array(params['kp'])
+        if 'kd' in params:
+            self.kd = np.array(params['kd'])

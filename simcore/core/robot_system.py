@@ -237,6 +237,10 @@ class RobotSystem:
             return get_asset_path(config.removeprefix("assets/"))
         return config
     
+    def set_controller_params(self, device_name: str, params: dict, mode: str = None):
+        if device_name not in self.ctrl:
+            raise ValueError(f"Unknown device: {device_name}")
+        self.ctrl[device_name].set_params(params, mode)
 
 if __name__ == "__main__":
     cfg = load_yaml("configs/global_config.yaml")
