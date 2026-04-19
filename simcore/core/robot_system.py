@@ -248,6 +248,9 @@ class RobotSystem:
             raise ValueError(f"Unknown device: {device_name}")
         self.ctrl[device_name].set_params(params, mode)
 
+    def get_camera_image(self, camera_name: str, bgr: bool = False) -> np.ndarray:
+        return self.sim.get_camera_image(camera_name=camera_name, bgr=bgr)
+
 if __name__ == "__main__":
     cfg = load_yaml("configs/global_config.yaml")
     system = RobotSystem(cfg)

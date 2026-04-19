@@ -325,6 +325,8 @@ class SimulationModel:
         """Called by control thread after set_command to trigger one physics step."""
         self._command_event.set()
 
+    ''' 
+    # Legacy
     def get_camera_image(self, camera_name: str) -> Optional[np.ndarray]:
         """Render image from specified camera."""
         if camera_name not in self.renderers:
@@ -336,6 +338,37 @@ class SimulationModel:
         renderer.update_scene(self.mj_data, camera=cam_id)
         
         return renderer.render()
+    '''
+    def get_camera_image(self, camera_name: str, bgr: bool = False) -> Optional[np.ndarray]:
+        if camera_name not in self.renderers:
+            raise ValueError(
+                f"Camera '{camera_name}' not available. "
+                f"Configured renderers: {list(self.renderers.keys())}"
+            )
+        renderer = self.renderers[camera_name]
+        with self._lock:
+            renderer.update_scene(self.mj_data, camera=renderer._cam_id)
+            frame = renderer.render()
+
+        if bgr:
+            import cv2
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        return frame.copy()
+    
+    def get_camera_intrinsics(self, camera_name: str):
+        if camera_name not in self.renderers:
+            raise ValueError(f"Camera '{camera_name}' not available. Options: {list(self.renderers.keys())}")
+
+        renderer = self.renderers[camera_name]
+        cam_id = renderer._cam_id
+        width = renderer.width
+        height = renderer.height
+        fovy_deg = float(self.mj_model.cam_fovy[cam_id])
+
+        K = self.mujoco_camera_matrix(width, height, fovy_deg)
+        dist = np.zeros(5, dtype=float)
+        return K, dist, width, height, fovy_deg
 
     def _physics_loop(self):
 
@@ -485,3 +518,15 @@ class SimulationModel:
                 self.mj_model.body_quat[body_id] = quat
 
             mj.mj_forward(self.mj_model, self.mj_data)
+    
+    def mujoco_camera_matrix(self, width: int, height: int, fovy_deg: float) -> np.ndarray:
+        fovy = np.deg2rad(fovy_deg)
+        fy = (height / 2.0) / np.tan(fovy / 2.0)
+        fx = fy
+        cx = width / 2.0
+        cy = height / 2.0
+        return np.array([
+            [fx, 0.0, cx],
+            [0.0, fy, cy],
+            [0.0, 0.0, 1.0],
+        ], dtype=float)
