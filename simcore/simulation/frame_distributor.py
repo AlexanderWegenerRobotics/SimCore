@@ -11,25 +11,6 @@ if TYPE_CHECKING:
 
 
 class FrameDistributor:
-    """Pulls frames from simulation renderers and distributes to all consumers.
-    
-    This decouples frame production (rendering) from consumption (display,
-    video logging, streaming). All consumers receive the same frames so
-    we only render once per camera per update cycle.
-
-    Consumers:
-        - Display (CV2 windows)          -> optional
-        - VideoLogger (mp4 recording)    -> optional  
-        - StreamerManager (RTP/UDP etc)  -> optional
-
-    Usage:
-        distributor = FrameDistributor(sim, config)
-        distributor.set_display_enabled(True)
-        distributor.set_video_logger(video_logger)
-        distributor.set_streamer_manager(streamer_manager)
-        distributor.run()  # blocking, call on main thread (CV2 needs main thread)
-    """
-
     def __init__(self, sim: 'SimulationModel', config: dict):
         self.sim = sim
         self.config = config
@@ -116,6 +97,7 @@ class FrameDistributor:
             frame_rgb = renderer.render()
             frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
             frames[cam_name] = frame_bgr
+            self.sim.set_latest_camera_frame(cam_name, frame_bgr)
 
         # ── Distribute to consumers ──
 

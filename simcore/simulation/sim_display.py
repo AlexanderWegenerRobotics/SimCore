@@ -40,6 +40,7 @@ class SimulationDisplay:
         
         while self.running and self.sim.running:
             self._update()
+            print("running frame")
             time.sleep(self.fps)
         
         cv2.destroyAllWindows()
@@ -63,6 +64,7 @@ class SimulationDisplay:
             frame_rgb = renderer.render()
             frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
             frames[cam_name] = frame_bgr
+            self.sim.set_latest_camera_frame(cam_name, frame_bgr)
             
             if self.video_logger is not None:
                 video_config = self.config.get('video_logging', {})

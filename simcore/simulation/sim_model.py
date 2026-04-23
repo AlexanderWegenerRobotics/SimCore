@@ -62,6 +62,9 @@ class SimulationModel:
         self.physics_thread = threading.Thread(target=self._physics_loop, daemon=True)
         self._command = np.zeros(self.mj_model.nu)
 
+        self._latest_frames = {}
+        self._latest_frames_lock = threading.Lock()
+
         self.running = False
         self.dt = self.mj_model.opt.timestep
 
@@ -80,9 +83,7 @@ class SimulationModel:
 
 
     def _build_model_from_config(self, config:Dict):
-        """
-        Build MuJoCo model by composing base world + devices + objects.
-        """
+        """ Build MuJoCo model by composing base world + devices + objects. """
         world_spec = mj.MjSpec.from_file(config['world_model'])
         world_spec.copy_during_attach = True
 
@@ -348,13 +349,22 @@ class SimulationModel:
         renderer = self.renderers[camera_name]
         with self._lock:
             renderer.update_scene(self.mj_data, camera=renderer._cam_id)
-            frame = renderer.render()
+        frame = renderer.render()
 
         if bgr:
             import cv2
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         return frame.copy()
+    
+    def set_latest_camera_frame(self, camera_name: str, frame: np.ndarray):
+        with self._latest_frames_lock:
+            self._latest_frames[camera_name] = frame.copy()
+
+    def get_latest_camera_frame(self, camera_name: str) -> Optional[np.ndarray]:
+        with self._latest_frames_lock:
+            frame = self._latest_frames.get(camera_name)
+            return None if frame is None else frame.copy()
     
     def get_camera_intrinsics(self, camera_name: str):
         if camera_name not in self.renderers:
