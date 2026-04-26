@@ -510,7 +510,9 @@ class SimulationModel:
     def reset_object_pose(self, object_name: str, pos: np.ndarray, quat: np.ndarray) -> None:
         obj = self.objects[object_name]
         if not obj.body_ids:
-            raise ValueError(f"Object '{object_name}' has no bodies")
+            print(f"Object '{object_name}' has no bodies")
+            return
+            #raise ValueError(f"Object '{object_name}' has no bodies")
         body_id = obj.body_ids[0]
 
         joint_ids = [j for j in range(self.mj_model.njnt) if self.mj_model.jnt_bodyid[j] == body_id]
