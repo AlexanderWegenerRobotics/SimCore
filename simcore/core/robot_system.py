@@ -253,6 +253,9 @@ class RobotSystem:
 
     def get_latest_camera_frame(self, camera_name: str) -> np.ndarray:
         return self.sim.get_latest_camera_frame(camera_name)
+    
+    def get_control_cycle(self):
+        return self.dt
 
 if __name__ == "__main__":
     cfg = load_yaml("configs/global_config.yaml")
