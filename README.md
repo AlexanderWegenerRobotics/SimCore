@@ -2,9 +2,20 @@
 
 Modular simulation and control framework for robotic manipulation research. Built on [MuJoCo](https://mujoco.org/) and [Pinocchio](https://github.com/stack-of-tasks/pinocchio), designed as a reusable core shared across task-specific projects.
 
+---
+
+## Built with SimCore
+
+| Peg-in-Hole Insertion | Vision-Based Pushing | Rotary Pendulum MPC |
+|:---------------------:|:--------------------:|:-------------------:|
+| ![insertion](docs/gifs/insertion_wide.gif) | ![pushing](docs/gifs/GT-MPC.gif) | ![pendulum](docs/gifs/mpc_impulse.gif) |
+| [force-insertion-sim](https://github.com/AlexanderWegenerRobotics/force-insertion-sim) — diffusion policy for sub-mm peg-in-hole insertion | [vision-mpc](https://github.com/AlexanderWegenerRobotics/vision_mpc) — NMPC for planar pushing under perception uncertainty | [rotary-pendulum-sim](https://github.com/AlexanderWegenerRobotics/rotary-pendulum-sim) — LQR / iLQR / MPC benchmark for underactuated double pendulum |
+
+---
+
 ## Overview
 
-SimCore separates the simulation infrastructure from task logic. A downstream project (data collection, imitation learning, teleoperation, etc.) declares its scene in YAML and interacts with the robot through a clean API — no MuJoCo boilerplate required.
+SimCore separates simulation infrastructure from task logic. A downstream project declares its scene in YAML and interacts with the robot through a clean API — no MuJoCo boilerplate required.
 
 ```
 your_project/
@@ -25,17 +36,22 @@ your_project/
 - **Video recording** — per-camera capture at configurable frame rates
 - **Multi-robot support** — tested with Franka Panda/FR3, Boston Dynamics Spot, Unitree H1
 
+---
+
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/SimCore.git
+git clone https://github.com/AlexanderWegenerRobotics/SimCore.git
 cd SimCore
 pip install -e .
 conda install -c conda-forge pinocchio
 ```
 
 **Dependencies:** `mujoco`, `pinocchio`, `numpy`, `pyyaml`, `h5py`, `opencv-python`
-**Conda-managed:** `pinocchio` (install via `conda-forge` before `pip install -e .`)
+
+**Note:** Install `pinocchio` via `conda-forge` before running `pip install -e .`
+
+---
 
 ## Quick Start
 
@@ -44,6 +60,8 @@ A working example is in `examples/`. It moves a Franka FR3 through three Cartesi
 ```bash
 python examples/basic_arm_control.py
 ```
+
+---
 
 ## API Reference
 
@@ -65,7 +83,7 @@ system = RobotSystem(load_yaml("configs/global_config.yaml"))
 
 Starts the system.
 
-- **Display mode** (`headless: False`): launches the physics thread, control loop, and blocks on the render window. Returns when the window is closed or `Ctrl-C` is pressed.
+- **Display mode** (`headless: False`): launches the physics thread, control loop, and blocks on the render window.
 - **Headless mode** (`headless: True`): marks the system as running and returns immediately. Call `system.step()` manually in a loop.
 
 ---
@@ -73,8 +91,6 @@ Starts the system.
 ### `system.step()`
 
 Advances the simulation by one control cycle (headless mode only).
-
-Reads state → computes control for all devices → steps physics. One call = one timestep.
 
 ```python
 for _ in range(1000):
@@ -86,7 +102,7 @@ for _ in range(1000):
 
 ### `system.set_target(device_name: str, target: dict)`
 
-Sets the control target for a device. Only provided keys are updated; others are unchanged.
+Sets the control target for a device. Only provided keys are updated.
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -97,7 +113,6 @@ Sets the control target for a device. Only provided keys are updated; others are
 
 ```python
 from simcore import Pose
-import numpy as np
 
 # Cartesian target (impedance mode)
 system.set_target("arm", {"x": Pose(position=[0.5, 0.0, 0.5], quaternion=[0, 1, 0, 0])})
@@ -110,23 +125,17 @@ system.set_target("arm", {"q": np.array([0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0
 
 ### `system.set_controller_mode(device_name: str, mode: str)`
 
-Switches the active controller. Available modes depend on the device's control param file.
-
 | Mode | Description |
 |------|-------------|
 | `"impedance"` | Cartesian impedance with null-space regulation |
 | `"dynamic_impedance"` | Impedance with task-adapted stiffness profile |
 | `"position"` | Joint-space PD control |
 
-```python
-system.set_controller_mode("arm", "impedance")
-```
-
 ---
 
 ### `system.get_state() → dict`
 
-Returns the current state for all devices. Each value is a `RobotState` with fields:
+Returns current state for all devices. Each value is a `RobotState`:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -150,17 +159,9 @@ Shuts down all subsystems, joins threads, and saves logged data.
 
 ---
 
-### `system.get_timestep() → float`
-
-Returns the simulation timestep in seconds (inverse of `control_rate` in the scene config).
-
----
-
 ## Configuration
 
 ### Scene config (`scene_config.yaml`)
-
-Top-level keys:
 
 | Key | Description |
 |-----|-------------|
@@ -187,7 +188,7 @@ devices:
     dof: 7
     base_pose:
       position: [0, 0, 0.425]
-      orientation: [1, 0, 0, 0]      # wxyz quaternion
+      orientation: [1, 0, 0, 0]
     q0: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
 ```
 
@@ -197,9 +198,9 @@ devices:
 default_mode: "impedance"
 
 impedance:
-  K_cart: [800, 800, 800, 80, 80, 80]   # translational / rotational stiffness
-  D_cart: [80, 80, 80, 20, 20, 20]      # damping
-  K_null: 10                             # null-space stiffness
+  K_cart: [800, 800, 800, 80, 80, 80]
+  D_cart: [80, 80, 80, 20, 20, 20]
+  K_null: 10
   tau_max: [87, 87, 87, 87, 12, 12, 12]
 
 position:
@@ -212,14 +213,9 @@ position:
 
 ## Headless vs. Display Mode
 
-SimCore has two execution modes controlled by `headless` in the scene config.
-
-**Display mode** runs physics and control in background threads and blocks the main thread on the render window. Task logic runs in a separate thread alongside it.
-
-**Headless mode** gives full control of the simulation clock to the caller. `system.run()` returns immediately; you drive time by calling `system.step()` in a loop. This is the mode to use for fast data collection — no rendering overhead.
+**Headless mode** gives full control of the simulation clock to the caller — no rendering overhead. Use for fast data collection.
 
 ```python
-# Headless task loop pattern
 system.run()
 while not_done:
     system.set_target("arm", {"x": next_pose})
@@ -227,12 +223,13 @@ while not_done:
 system.stop()
 ```
 
+**Display mode** runs physics and control in background threads and blocks the main thread on the render window.
+
 ```python
-# Display mode pattern
 import threading
 task_thread = threading.Thread(target=task.run, daemon=True)
 task_thread.start()
-system.run()   # blocks here
+system.run()  # blocks here
 system.stop()
 ```
 
@@ -251,11 +248,15 @@ SimCore/
 ├── assets/
 │   ├── mujoco/        # Robot XMLs, props, scenes
 │   └── urdf/          # URDF models for Pinocchio
+├── docs/
+│   └── gifs/          # Demo clips
 ├── examples/
 │   ├── basic_arm_control.py
 │   └── configs/
 └── pyproject.toml
 ```
+
+---
 
 ## License
 
